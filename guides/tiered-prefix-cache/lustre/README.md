@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides recipes to offload prefix cache to Lustre storage backend.
+This guide provides recipes to offload prefix cache to GCP Lustre storage backend.
 
 ## Prerequisites
 
@@ -19,19 +19,19 @@ This guide provides recipes to offload prefix cache to Lustre storage backend.
 * [Create the `llm-d-hf-token` secret in your target namespace with the key `HF_TOKEN` matching a valid HuggingFace token](../../prereq/client-setup/README.md#huggingface-token) to pull models.
 * [Choose an llm-d version](../../prereq/client-setup/README.md#llm-d-version)
 
-## Cluster setup for provisioning Lustre (GKE cluster)
+## Cluster setup for provisioning a managed GCP Lustre instance (GKE cluster)
 
-To create a new GKE cluster, you need to first set up a separate VPC for provisioning a Lustre instance. Follow the [steps from Lustre guide](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#vpc-setup) to setup a separate VPC network.
+To create a new GKE cluster, you need to first set up a separate VPC for provisioning a managed GCP Lustre instance. Follow the [steps from Lustre guide](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#vpc-setup) to setup a separate VPC network.
 
-If you have an existing cluster, you can update the same VPC network to enable provisioning a Lustre instance. Ensure you initialize the variable `NETWORK_NAME` with your existing network name and skip the network creation command in the [setup above](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#vpc-setup).
+If you have an existing cluster, you can update the same VPC network to enable provisioning a managed GCP Lustre instance. Ensure you initialize the variable `NETWORK_NAME` with your existing network name and skip the network creation command in the [setup above](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#vpc-setup).
 
-This example assumes the below network name and lustre instance location 
+This example assumes the below network name and GCP lustre instance location 
 ```bash
 export NETWORK_NAME=test-lustre-llmd
 export LOCATION=us-central1-a
 ```
 
-Ensure [Lustre CSI driver is enabled](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#manage) on the cluster, otherwise it would fail to provision a lustre instance
+Ensure [Lustre CSI driver is enabled](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#manage) on the cluster, otherwise it would fail to provision a managed GCP Lustre instance
 
 ## Installation
 Note: This guide follows GKE specific installation steps, it is not been tested for other providers.
@@ -56,7 +56,7 @@ Create Lustre instance in the required location
 ```bash
 kubectl apply -f ./manifests/lustre-config.yaml -n ${NAMESPACE}
 ```
-Deploy the vLLM model server using the LMCache connector, configured for KVCache offloading across tiered storage consisting of CPU RAM and a mounted Lustre instance.
+Deploy the vLLM model server using the LMCache connector, configured for KVCache offloading across tiered storage consisting of CPU RAM and a mounted managed GCP Lustre instance.
 
 ```bash
 kubectl apply -k ./manifests/ -n ${NAMESPACE}
@@ -147,10 +147,12 @@ You should see the following lines in the logs
 ```
 This indicates that the model server pod is now ready to serve requests. You can also verify if the requests are being served from local storage (Lustre in this case) by check the metric `lmcache:local_storaqe_usage` through following command.
 ```bash
-export IP=0.0.0.0
+export IP=localhost
 export PORT=8000
 kubectl exec -it llm-d-model-server-xxxx-xxxx -- curl -i http://${IP}:${PORT}/metrics | grep lmcache:local_storage_usage
 ```
+
+The metric can also be viewed through Pantheon UI for a GCP project through `Metrics Explorer`: `Prometheus Target > lmcache > prometheus/lmcache:local_storage_usage/gauge`
 
 ## Cleanup
 
