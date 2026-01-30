@@ -34,43 +34,42 @@ export LOCATION=us-central1-a
 Ensure [Lustre CSI driver is enabled](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#manage) on the cluster, otherwise it would fail to provision a managed GCP Lustre instance
 
 ## Installation
-Note: This guide follows GKE specific installation steps, it is not been tested for other providers.
+Note: This guide follows GKE specific installation steps, it has not been tested for other providers.
 
 ```
 cd guides/tiered-prefix-cache/lustre
 ```
+### 1. Provision a lustre instance
+Create a managed GCP Lustre instance in the required location
 
-### 1. Deploy Gateway and HTTPRoute
+```bash
+kubectl apply -f ./manifests/lustre-config.yaml -n ${NAMESPACE}
+```
+
+### 2. Deploy Gateway and HTTPRoute
 
 Deploy the Gateway and HTTPRoute using the [gateway recipe](../../recipes/gateway/README.md).
 
-### 2. Deploy vLLM Model Server
+### 3. Deploy vLLM Model Server
 
 <!-- TABS:START -->
 
 <!-- TAB:LMCache-Lustre as local disk connector -->
 #### LMCache-Lustre Connector
 
-Create Lustre instance in the required location
-
-```bash
-kubectl apply -f ./manifests/lustre-config.yaml -n ${NAMESPACE}
-```
 Deploy the vLLM model server using the LMCache connector, configured for KVCache offloading across tiered storage consisting of CPU RAM and a mounted managed GCP Lustre instance.
 
 ```bash
 kubectl apply -k ./manifests/ -n ${NAMESPACE}
 ```
-
 <!-- TABS:END -->
 
-### 3. Deploy InferencePool
+### 4. Deploy InferencePool
 
 #### GKE
 
-Deploy the inferencepool following GKE specific command from [CPU inferencepool guide](../cpu/README.md#gke)
+This guide currently uses the same tired prefix caching scoring configuration, so deploy the inferencepool following GKE specific command from [CPU offloading inferencepool guide](../cpu/README.md#gke). A follow up is to further optimize `inferencepool` configuration considering the storage tier.
 
-<!-- TABS:END -->
 
 ## Verifying the installation
 

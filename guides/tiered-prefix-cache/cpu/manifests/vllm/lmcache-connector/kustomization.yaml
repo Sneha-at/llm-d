@@ -20,14 +20,13 @@ patches:
         path: /spec/template/spec/containers/0/args
         value:
           - >-
-            mkdir -p /tmp/lmcache_prometheus &&
             vllm serve Qwen/Qwen3-32B
             --tensor-parallel-size 2
             --port 8000
             --max-num-seq 1024
             --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}'
             --enable_prefix_caching
-            --gpu-memory-utilization 0.65
+            --gpu-memory-utilization 0.8
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
@@ -51,3 +50,19 @@ patches:
           requests:
             nvidia.com/gpu: 2
             memory: 400G
+
+# Mount an emptyDir to collect prometheus metrics
+  - target:
+      kind: Deployment
+      name: llm-d-model-server
+    patch: |-
+      - op: add
+        path: /spec/template/spec/volumes/-
+        value:
+          name: lmcache-prometheus-metrics
+          emptyDir: {}
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts/-
+        value:
+          name: lmcache-prometheus-metrics
+          mountPath: /tmp/lmcache_prometheus

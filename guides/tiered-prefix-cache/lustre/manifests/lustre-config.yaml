@@ -23,7 +23,7 @@ spec:
   - ReadWriteMany
   resources:
     requests:
-      storage: 36000Gi # Range from 18000Gi to 954000Gi, must be in multiples of 9000 Gi
+      storage: 18000Gi # Range from 18000Gi to 954000Gi, must be in multiples of 9000 Gi
   storageClassName: lustre-class
 ---
 # This might not be required if the llm-d image you are using has monitoring setup. This is required though for the llm-d image used in this example. 
