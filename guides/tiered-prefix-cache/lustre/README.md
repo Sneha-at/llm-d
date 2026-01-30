@@ -1,4 +1,6 @@
-# Offloading Prefix Cache to Lustre
+# [In Development] Offloading Prefix Cache to Lustre
+
+>**NOTE:** This guide provides configuration to set up KV cache offloading to Lustre using the lmcache-connector. Performance benchmarking comparisons is currently under development.
 
 ## Overview
 
@@ -25,51 +27,46 @@ To create a new GKE cluster, you need to first set up a separate VPC for provisi
 
 If you have an existing cluster, you can update the same VPC network to enable provisioning a managed GCP Lustre instance. Ensure you initialize the variable `NETWORK_NAME` with your existing network name and skip the network creation command in the [setup above](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#vpc-setup).
 
-This example assumes the below network name and GCP lustre instance location 
-```bash
-export NETWORK_NAME=test-lustre-llmd
-export LOCATION=us-central1-a
-```
+Please update the `$NETWORK_NAME` and `$LOCATION` variables in [lustre-config.yaml](./manifests/lustre-config.yaml) to match your cluster configuration.
 
 Ensure [Lustre CSI driver is enabled](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/lustre-csi-driver-new-volume#manage) on the cluster, otherwise it would fail to provision a managed GCP Lustre instance
 
 ## Installation
-Note: This guide follows GKE specific installation steps, it has not been tested for other providers.
+The below installation steps have been tested for GKE, you can customize the manifests if you run on other Kubernetes providers.
 
+<!-- TABS:START -->
+### GKE
 ```
 cd guides/tiered-prefix-cache/lustre
 ```
-### 1. Provision a lustre instance
+#### Provision a managed GCP Lustre instance
 Create a managed GCP Lustre instance in the required location
 
 ```bash
 kubectl apply -f ./manifests/lustre-config.yaml -n ${NAMESPACE}
 ```
 
-### 2. Deploy Gateway and HTTPRoute
+#### Deploy Gateway and HTTPRoute
 
 Deploy the Gateway and HTTPRoute using the [gateway recipe](../../recipes/gateway/README.md).
 
-### 3. Deploy vLLM Model Server
+#### Deploy vLLM Model Server
 
-<!-- TABS:START -->
 
-<!-- TAB:LMCache-Lustre as local disk connector -->
-#### LMCache-Lustre Connector
+  <!-- TAB:LMCache-Lustre as local disk connector -->
+##### LMCache-Lustre Connector
 
 Deploy the vLLM model server using the LMCache connector, configured for KVCache offloading across tiered storage consisting of CPU RAM and a mounted managed GCP Lustre instance.
 
 ```bash
 kubectl apply -k ./manifests/vllm/lustre-lmcache-connector -n ${NAMESPACE}
 ```
-<!-- TABS:END -->
 
-### 4. Deploy InferencePool
-
-#### GKE
+#### Deploy InferencePool
 
 This guide currently uses the same tired prefix caching scoring configuration, so deploy the inferencepool following GKE specific command from [CPU offloading inferencepool guide](../cpu/README.md#gke). A follow up is to further optimize `inferencepool` configuration considering the storage tier.
 
+<!-- TABS:END -->
 
 ## Verifying the installation
 
@@ -110,6 +107,15 @@ NAME            AGE
 llm-d-infpool   16m
 ```
 
+### Check the PVC
+```bash
+kubectl get pvc -n ${NAMESPACE}
+```
+```
+NAME         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+lustre-pvc   Bound    pvc-3c793698-XXXXXXX   36000Gi    RWX            lustre-class   <unset>                 6d
+```
+
 ### Check the Pods
 
 ```bash
@@ -124,16 +130,7 @@ llm-d-infpool-epp-xxxxxxxx-xxxxx     1/1     Running   0          16m
 llm-d-model-server-xxxxxxxx-xxxxx   1/1     Running   0          11m
 llm-d-model-server-xxxxxxxx-xxxxx   1/1     Running   0          11m
 ```
-### Check the PVC
-```bash
-kubectl get pvc -n ${NAMESPACE}
-```
-```
-NAME         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
-lustre-pvc   Bound    pvc-3c793698-XXXXXXX   36000Gi    RWX            lustre-class   <unset>                 6d
-```
 
-### Verify functional working
 Check the model server pod logs to confirm successful startup:
 ```bash
 kubectl logs llm-d-model-server-xxxxxxxx-xxxxx -n ${NAMESPACE}

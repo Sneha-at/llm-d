@@ -6,13 +6,13 @@ provisioner: lustre.csi.storage.gke.io
 volumeBindingMode: Immediate
 reclaimPolicy: Delete
 parameters:
-  network: test-lustre-llmd # Add your network name here
+  network: $NETWORK_NAME # Add your network name here
   perUnitStorageThroughput: "1000"
 allowedTopologies:
 - matchLabelExpressions:
   - key: topology.gke.io/zone
     values:
-    - us-central1-a # Add the location where you want to provision lustre instance.
+    - $LOCATION # Add the location where you want to provision lustre instance.
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
