@@ -10,7 +10,7 @@ patches:
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/image
-        value: quay.io/oroz/llm-d:cpu-offloading-12
+        value: quay.io/oroz/llm-d:cpu-offloading-12 # TODO:Update this to use the official llm-d image once https://github.com/llm-d/llm-d/issues/663 is resolved
       - op: replace
         path: /spec/template/spec/containers/0/command
         value:
