@@ -60,7 +60,7 @@ Deploy the Gateway and HTTPRoute using the [gateway recipe](../../recipes/gatewa
 Deploy the vLLM model server using the LMCache connector, configured for KVCache offloading across tiered storage consisting of CPU RAM and a mounted managed GCP Lustre instance.
 
 ```bash
-kubectl apply -k ./manifests/ -n ${NAMESPACE}
+kubectl apply -k ./manifests/vllm/lustre-lmcache-connector -n ${NAMESPACE}
 ```
 <!-- TABS:END -->
 
@@ -159,7 +159,7 @@ To remove the deployment:
 
 ```bash
 helm uninstall llm-d-infpool -n ${NAMESPACE}
-kubectl delete -k ./manifests/vllm/offloading-connector -n ${NAMESPACE}
-kubectl delete -k ../../../../recipes/gateway/gke-l7-regional-external-managed -n ${NAMESPACE}
+kubectl delete -k ./manifests/vllm/lustre-lmcache-connector -n ${NAMESPACE}
+kubectl delete -k ../../recipes/gateway/gke-l7-regional-external-managed -n ${NAMESPACE}
 kubectl delete namespace ${NAMESPACE}
 ```

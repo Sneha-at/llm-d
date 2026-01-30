@@ -14,19 +14,23 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/command
         value:
-          - "/bin/bash"
-          - "-c"
+          - "vllm"
       - op: replace
         path: /spec/template/spec/containers/0/args
         value:
-          - >-
-            vllm serve Qwen/Qwen3-32B
-            --tensor-parallel-size 2
-            --port 8000
-            --max-num-seq 1024
-            --kv-transfer-config '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}'
-            --enable_prefix_caching
-            --gpu-memory-utilization 0.8
+          - "serve"
+          - "Qwen/Qwen3-32B"
+          - "--tensor-parallel-size"
+          - "2"
+          - "--port"
+          - "8000"
+          - "--max-num-seq"
+          - "1024"
+          - "--kv-transfer-config"
+          - '{"kv_connector":"LMCacheConnectorV1","kv_role":"kv_both"}'
+          - "--enable_prefix_caching"
+          - "--gpu-memory-utilization"
+          - "0.8"
       - op: add
         path: /spec/template/spec/containers/0/env/-
         value:
