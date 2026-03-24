@@ -264,6 +264,83 @@ kubectl delete namespace ${NAMESPACE}
 
 ## Benchmarking
 
-Coming soon, see tracking issues:
+The following benchmark results demonstrate the performance improvements of using Lustre to offload the KV cache with LM cache connector.
+
+### LMCache connector
+
+#### Benchmark Setup
+
+* **Hardware:**
+  * A total of 16 H100 GPUs, each with 80GB of HBM, were used.
+  * The GPUs were distributed across 4 `a3-highgpu-4g` instances, with 4 GPUs per instance.
+
+* **vLLM Configuration:**
+  * `gpu_memory_utilization` was set to `0.65` to reduce the pressure on the benchmark tool. In
+    production configuration this is typically set to a higher value such as 0.9.
+  * CPU offloading was enabled
+
+* **LMCache Configuration:**
+  * For LMCache setup, `LMCACHE_MAX_LOCAL_CPU_SIZE` set to `20GB`, which provides approximately 20*16(number of GPUs)=320GB of CPU RAM cache.
+
+The benchmark was conducted using the [inference-perf](https://github.com/kubernetes-sigs/inference-perf) tool with the following hardware, memory, and workload configurations:
+
+* **Workload:**
+  * The two different workloads were tested with a constant concurrency of 50 requests.
+  * **Inference Perf configuration**
+    ```
+    load:
+        type: concurrent
+        stages:
+        - num_requests: 2700
+        concurrency_level: 20
+    ```
+  * **High Cache:**
+    * `num_groups`: 50
+    * `system_prompt_len`: 70000
+    * `question_len`: 256
+    * `output_len`: 1024
+    * `num_prompts_per_group`: 50
+  * **Low Cache:**
+    * `num_groups`: 50
+    * `system_prompt_len`: 50000
+    * `question_len`: 256
+    * `output_len`: 1024
+    * `num_prompts_per_group`: 50
+
+* **Memory Calculation:**
+  * The KVCache size for the `meta-llama/Llama-3.3-70B-Instruct` model is approximately 320KB per token.
+  * With `gpu_memory_utilization` at 0.65, there are 10768 GPU blocks available per engine.
+  * The available HBM for KVCache per engine is approximately 55 GB (10768 blocks * 5.12 MB/block).
+  * The total available HBM for the KVCache across the entire system was 220 GB (4 engines * 55 GB/engine).
+  * Total CPU RAM cache available across the system was 320 GB.
+
+#### Key Findings
+
+Both scenarios 
+
+* In **High cache scenarios**, where the KVCache size exceeds the available HBM, both the vLLM native CPU offloading connector and LMCache connector significantly enhance performance.
+* In **Low cache scenarios**, where the KVCache fits entirely within the GPU's HBM, all offloading configurations perform similarly to the baseline. However, consistent slight decreases in performance across metrics indicate a small overhead associated with enabling CPU offloading, even when it is not actively utilized.
+
+#### High Cache Performance
+
+The following table compares the performance of the baseline vLLM with the vLLM using the CPU offloading connector when the KVCache size is larger than the available HBM.
+
+| KVCache > HBM + CPU RAM | Mean TTFT (second) | P90 TTFT (second) | Mean E2E Latency (second) | P90 E2E Latency (second) | Input Throughput (token per second) | Output Throughput (token per second) | Overall Throughput (token per second) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Baseline vLLM + CPU offloading** | 58.02 | 74.75 | 87.99 | 105.46 | 16598 | 226.65 | 16825 |
+| **vLLM + CPU offloading + Lustre** | 45 (-22%) | 64.79 (-13%) | 68.28 (-22%) | 87.47 (-17%) | 21364 (+28.71%) | 291 (+28.39%) | 21656 (+28.71%) |
+
+
+
+#### Low Cache Performance
+
+The following table shows that when the KVCache fits within the HBM, the performance of all configurations is similar, indicating minimal but measurable overhead from the CPU offloading mechanism.
+
+| KVCache > HBM + CPU RAM | Mean TTFT (second) | P90 TTFT (second) | Mean E2E Latency (second) | P90 E2E Latency (second) | Input Throughput (token per second) | Output Throughput (token per second) | Overall Throughput (token per second) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Baseline vLLM + CPU offloading** | 25.38 | 37.74 | 56.21 | 69.69 | 18607 | 354 | 18962 |
+| **vLLM + CPU offloading + Lustre** | 20.12 (-21%) | 34.02 (-9.9%) | 45.83 (-18%) | 58.73 (-16%) | 22827 (+23%) | 435 (+23%) | 23262 (+23%) |
+
+
+LLM-D FS connector benchmarks coming soon, see tracking issues:
 * https://github.com/llm-d/llm-d/issues/680
-* https://github.com/llm-d/llm-d/issues/681
