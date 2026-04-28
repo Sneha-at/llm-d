@@ -6,30 +6,79 @@ This guide provides recipes to offload prefix cache to CPU RAM via the vLLM nati
 
 ## Prerequisites
 
-* All prerequisites from the [upper level](../README.md).
-* Have the [proper client tools installed on your local system](../../../helpers/client-setup/README.md) to use this guide.
-* Configure and deploy your [Gateway control plane](../../prereq/gateway-provider/README.md).
-* Have the [Monitoring stack](../../../docs/monitoring/README.md) installed on your system.
-* Create a namespace for installation.
+- Have the [proper client tools installed on your local system](../../helpers/client-setup/README.md) to use this guide.
+- Checkout llm-d repo:
 
   ```bash
-  export NAMESPACE=llm-d-pfc-cpu # or any other namespace (shorter names recommended)
-  kubectl create namespace ${NAMESPACE}
+    export branch="main" # branch, tag, or commit hash
+    git clone https://github.com/llm-d/llm-d.git && cd llm-d && git checkout ${branch}
+  ```
+- Set the following environment variables:
+  ```bash
+    export GAIE_VERSION=v1.4.0
+    export GUIDE_NAME="tiered-prefix-cache"
+    export NAMESPACE=llm-d-optimized-baseline
+    export MODEL_NAME="Qwen/Qwen3-32B"
+  ```
+- Install the Gateway API Inference Extension CRDs:
+
+  ```bash
+    kubectl apply -k "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd?ref=${GAIE_VERSION}"
+  ```
+- Install CRD for LeaderWorkerSet 
+  ```bash
+    kubectl apply -k
+  ```
+- Create a target namespace for the installation
+  ```bash
+      kubectl create namespace ${NAMESPACE}
   ```
 
-* [Create the `llm-d-hf-token` secret in your target namespace with the key `HF_TOKEN` matching a valid HuggingFace token](../../../helpers/hf-token.md) to pull models.
+- [Create the `llm-d-hf-token` secret in your target namespace with the key `HF_TOKEN` matching a valid HuggingFace token](../../../helpers/hf-token.md) to pull models.
 
-## Installation
+## Installation Instructions
 
 ```bash
 cd guides/tiered-prefix-cache/cpu
 ```
 
-### Deploy Gateway and HTTPRoute
+### 1. Deploy the Inference Scheduler
 
-Deploy the Gateway and HTTPRoute using the [gateway recipe](../../recipes/gateway/README.md).
+#### Standalone Mode
 
-### Deploy vLLM Model Server
+This deploys the inference scheduler with an Envoy sidecar, it doesn't set up a Kubernetes Gateway.
+
+```bash
+helm install ${GUIDE_NAME} \
+    oci://registry.k8s.io/gateway-api-inference-extension/charts/standalone \
+    -f guides/recipes/scheduler/base.values.yaml \
+    -f guides/${GUIDE_NAME}/scheduler/${GUIDE_NAME}.values.yaml \
+    -n ${NAMESPACE} --version v1.4.0
+```
+
+<details>
+<summary><h4>Gateway Mode</h4></summary>
+
+To use a Kubernetes Gateway managed proxy rather than the standalone version, follow these steps instead of applying the previous Helm chart:
+
+1. *Deploy a Kubernetes Gateway* named by following one of [the gateway guides](../prereq/gateways).
+2. *Deploy the inference scheduler and an HTTPRoute* that connects it to the Gateway as follows:
+
+```bash
+export PROVIDER_NAME=gke # options: none, gke, agentgateway, istio
+helm install ${GUIDE_NAME} \
+    oci://registry.k8s.io/gateway-api-inference-extension/charts/inferencepool  \
+    -f guides/recipes/scheduler/base.values.yaml \
+    -f guides/${GUIDE_NAME}/scheduler/${GUIDE_NAME}.values.yaml \
+    --set provider.name=${PROVIDER_NAME} \
+    --set experimentalHttpRoute.enabled=true \
+    --set experimentalHttpRoute.inferenceGatewayName=llm-d-inference-gateway \
+    -n ${NAMESPACE} --version v1.4.0
+```
+
+</details>
+
+### 2. Deploy the Model Server
 
 <!-- TABS:START -->
 

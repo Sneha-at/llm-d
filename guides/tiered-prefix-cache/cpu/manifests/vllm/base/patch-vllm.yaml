@@ -1,0 +1,56 @@
+apiVersion: leaderworkerset.x-k8s.io/v1
+kind: LeaderWorkerSet
+metadata:
+  name: decode
+spec:
+  replicas: 4
+  leaderWorkerTemplate:
+    workerTemplate:
+      spec:
+        containers:
+          - name: modelserver
+            imagePullPolicy: IfNotPresent
+            command:
+              - /bin/bash
+              - -c
+            args:
+              - exec vllm serve Qwen/Qwen3-32B \
+                --disable-access-log-for-endpoints=/health,/metrics,/v1/models \
+                --port 8000 --tensor-parallel-size=2
+            env:
+              - name: HUGGING_FACE_HUB_TOKEN
+                valueFrom:
+                  secretKeyRef:
+                    name: llm-d-hf-token
+                    key: HF_TOKEN
+            resources:
+              limits:
+                nvidia.com/gpu: 2
+              requests:
+                nvidia.com/gpu: 2
+            volumeMounts:
+              - mountPath: /dev/shm
+                name: shm
+              - mountPath: /.cache
+                name: torch-compile-cache
+            startupProbe:
+              initialDelaySeconds: 2
+              periodSeconds: 1
+              timeoutSeconds: 5
+              failureThreshold: 600
+            livenessProbe:
+              periodSeconds: 1
+              timeoutSeconds: 5
+              failureThreshold: 3
+            readinessProbe:
+              periodSeconds: 1
+              timeoutSeconds: 2
+              failureThreshold: 1
+        volumes:
+          - name: shm
+            emptyDir:
+              medium: Memory
+          - name: torch-compile-cache
+            emptyDir: {}
+        terminationGracePeriodSeconds: 130
+        restartPolicy: Always
